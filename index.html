@@ -3,19 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niconico - Web Audio Boost</title>
+    <title>Niconico - Visual Effects Toggle Player</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; overflow-x: hidden; }
+        
+        /* 映像コンテナとフィルタ適用ターゲット */
         .video-container {
             position: relative; width: 100%; padding-top: 56.25%;
             background: #000; border-radius: 12px; overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            transition: transform 0.1s;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            transition: filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        
         .video-container iframe {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
         }
+
+        /* ガードレイヤー */
         .guards-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 50; pointer-events: none;
@@ -31,29 +36,33 @@
         .left-guard { left: 0; }
         .right-guard { right: 0; }
 
-        @keyframes shake {
-            0% { transform: translate(0, 0); }
-            25% { transform: translate(3px, -3px); }
-            50% { transform: translate(-3px, 3px); }
-            75% { transform: translate(3px, 3px); }
-            100% { transform: translate(0, 0); }
+        /* トグルスイッチのスタイリング */
+        .toggle-btn {
+            @apply relative flex items-center justify-between w-full p-4 rounded-xl border border-slate-700 bg-slate-800 transition-all duration-300;
         }
-        .distorted { animation: shake 0.04s infinite; filter: contrast(1.8) saturate(2); }
+        .toggle-btn.active {
+            @apply border-pink-500 bg-slate-800/50 shadow-[0_0_15px_rgba(236,72,153,0.1)];
+        }
+        
+        /* スイッチ部分の装飾 */
+        .switch-track {
+            @apply relative w-12 h-6 bg-slate-600 rounded-full transition-colors duration-300;
+        }
+        .active .switch-track {
+            @apply bg-pink-600;
+        }
+        .switch-knob {
+            @apply absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm;
+        }
+        .active .switch-knob {
+            @apply translate-x-6;
+        }
 
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            height: 20px; width: 20px; border-radius: 50%; background: #db2777;
-            cursor: pointer; -webkit-appearance: none; margin-top: -6px;
-            box-shadow: 0 0 10px rgba(219, 39, 119, 0.5);
-        }
-        #dist-slider::-webkit-slider-thumb { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
-
-        .audio-node-path {
-            font-family: monospace; font-size: 10px; color: #94a3b8;
-            background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 4px;
+        #alert-box {
+            position: fixed; bottom: 20px; right: 20px;
+            background: #ef4444; color: white; padding: 12px 20px;
+            border-radius: 8px; display: none; z-index: 1000; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -61,23 +70,23 @@
 
     <div class="w-full max-w-4xl space-y-6">
         <div class="text-center space-y-2">
-            <h1 class="text-3xl font-bold tracking-tight text-white italic">AUDIO BOOST SYSTEM</h1>
-            <div class="audio-node-path inline-block">
-                [AudioSource] ➔ [GainNode(Volume)] ➔ [GainNode(Boost/Distortion)] ➔ [Destination]
-            </div>
+            <h1 class="text-3xl font-bold tracking-tight text-white italic">VISUAL EFFECT ENGINE</h1>
+            <p class="text-slate-400 text-sm italic tracking-widest uppercase">Restricted Player & Filter Toggle</p>
         </div>
 
+        <!-- URL Input -->
         <div class="flex gap-2">
             <input type="text" id="videoUrl" 
-                placeholder="ニコニコ動画のURLを入力" 
-                class="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white">
+                placeholder="ニコニコ動画のURLを入力..." 
+                class="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white transition-all">
             <button onclick="loadVideo()" 
-                class="px-6 py-3 bg-pink-600 hover:bg-pink-500 font-semibold rounded-lg transition-all">
-                LOAD
+                class="px-8 py-3 bg-pink-600 hover:bg-pink-500 font-bold rounded-lg transition-all shadow-lg shadow-pink-900/20 uppercase tracking-wider">
+                Load
             </button>
         </div>
 
-        <div id="playerWrapper" class="hidden space-y-6">
+        <div id="playerWrapper" class="hidden space-y-6 animate-in fade-in zoom-in duration-300">
+            <!-- Video Display Area -->
             <div id="visual-target" class="video-container">
                 <div id="videoIframe"></div>
                 <div class="guards-container">
@@ -87,123 +96,122 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Volume Node Control -->
-                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <label class="text-sm font-bold text-slate-300 uppercase tracking-widest">Master Volume</label>
-                        <span id="vol-value" class="text-lg font-mono text-pink-500">100%</span>
+            <!-- Effect Controls (Toggle Switches) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Invert Toggle Switch -->
+                <button id="btn-invert" onclick="toggleEffect('invert')" class="toggle-btn">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-400"><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
+                        </div>
+                        <span class="font-bold text-slate-200 uppercase tracking-tight">色を反転させる</span>
                     </div>
-                    <input type="range" id="vol-slider" min="0" max="100" value="100" class="w-full">
-                </div>
+                    <div class="switch-track">
+                        <div class="switch-knob"></div>
+                    </div>
+                </button>
 
-                <!-- Gain Boost Node Control -->
-                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <label class="text-sm font-bold text-red-500 uppercase tracking-widest">Gain Boost (Distortion)</label>
-                        <span id="dist-value" class="text-lg font-mono text-red-500">x1.0</span>
+                <!-- Grayscale Toggle Switch -->
+                <button id="btn-grayscale" onclick="toggleEffect('grayscale')" class="toggle-btn">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-pink-400"><circle cx="12" cy="12" r="10"/><path d="M12 2v20"/></svg>
+                        </div>
+                        <span class="font-bold text-slate-200 uppercase tracking-tight">白黒にする</span>
                     </div>
-                    <input type="range" id="dist-slider" min="1" max="100" step="0.5" value="1" class="w-full">
-                </div>
+                    <div class="switch-track">
+                        <div class="switch-knob"></div>
+                    </div>
+                </button>
             </div>
 
-            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-800">
-                <div id="status-display" class="text-xs font-mono text-green-500 animate-pulse">● AUDIO ENGINE STANDBY</div>
-                <button onclick="resetPlayer()" class="text-xs text-slate-500 hover:text-white underline">RESET SYSTEM</button>
+            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-800 shadow-inner">
+                <div id="videoInfo" class="text-xs font-mono text-pink-500 tracking-widest uppercase">System Operational</div>
+                <button onclick="resetPlayer()" class="text-xs text-slate-500 hover:text-white underline uppercase tracking-tighter">Reset UI</button>
             </div>
         </div>
     </div>
 
-    <div id="alert-box">ACCESS RESTRICTED</div>
+    <div id="alert-box">RESTRICTED ACTION</div>
 
     <script>
-        let audioCtx, source, volumeNode, boostNode;
         const videoInput = document.getElementById('videoUrl');
         const playerWrapper = document.getElementById('playerWrapper');
         const iframeContainer = document.getElementById('videoIframe');
         const visualTarget = document.getElementById('visual-target');
-        
-        const volSlider = document.getElementById('vol-slider');
-        const distSlider = document.getElementById('dist-slider');
-        const volValue = document.getElementById('vol-value');
-        const distValue = document.getElementById('dist-value');
+        const alertBox = document.getElementById('alert-box');
 
-        // Web Audio APIの初期化
-        function initAudioEngine() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // 音の道 (Routing) を構築
-                volumeNode = audioCtx.createGain(); // 通常の音量用
-                boostNode = audioCtx.createGain();  // 音割れブースト用
-                
-                // 接続: [Source] -> volumeNode -> boostNode -> [Destination]
-                // ※iframeの音声を取り込むには、ブラウザの「このタブの音声を共有」等の許可が必要になる場合があります
-                volumeNode.connect(boostNode);
-                boostNode.connect(audioCtx.destination);
-                
-                console.log("Audio Engine Route Established");
+        let effects = {
+            invert: false,
+            grayscale: false
+        };
+
+        // 映像エフェクトの切り替え (トグル)
+        function toggleEffect(type) {
+            effects[type] = !effects[type];
+            
+            // ボタンのスタイル更新
+            const btn = document.getElementById(`btn-${type}`);
+            if (effects[type]) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            
+            // フィルタの適用
+            updateFilters();
         }
 
-        volSlider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            volValue.textContent = `${val}%`;
-            if (volumeNode) {
-                volumeNode.gain.value = val / 100;
-            }
-        });
-
-        distSlider.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            distValue.textContent = `x${val.toFixed(1)}`;
+        function updateFilters() {
+            let filterString = "";
+            if (effects.invert) filterString += "invert(100%) ";
+            if (effects.grayscale) filterString += "grayscale(100%) ";
             
-            if (boostNode) {
-                boostNode.gain.value = val;
-            }
-
-            // 視覚的演出 (Gainに合わせて激しく揺らす)
-            if (val > 2) {
-                visualTarget.classList.add('distorted');
-                visualTarget.style.animationDuration = `${0.1 / (val / 5)}s`;
-            } else {
-                visualTarget.classList.remove('distorted');
-            }
-        });
+            visualTarget.style.filter = filterString || "none";
+        }
 
         function loadVideo() {
             const url = videoInput.value.trim();
             const nicoMatch = url.match(/(?:https?:\/\/)?(?:www\.)?nicovideo\.jp\/watch\/(sm\d+|so\d+|\d+)/);
 
             if (nicoMatch) {
-                initAudioEngine();
                 const videoId = nicoMatch[1];
                 const embedUrl = `https://embed.nicovideo.jp/watch/${videoId}?autoplay=1`;
                 
-                iframeContainer.innerHTML = `<iframe id="nico-iframe" src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+                iframeContainer.innerHTML = `<iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
                 playerWrapper.classList.remove('hidden');
-                document.getElementById('status-display').textContent = "● AUDIO ENGINE ACTIVE: ROUTING SUCCESS";
+                document.getElementById('videoInfo').textContent = `Video ID: ${videoId}`;
             } else {
-                alert("ニコニコ動画のURLを入力してください。");
+                alert("有効なニコニコ動画のURLを入力してください。");
             }
         }
 
-        // キー制限
+        // キー操作制限 (矢印キー、数字キー、スペース等)
         window.addEventListener('keydown', (e) => {
             const forbidden = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
             if (forbidden.includes(e.key)) {
                 e.preventDefault(); e.stopPropagation();
-                document.getElementById('alert-box').style.display = 'block';
-                setTimeout(() => { document.getElementById('alert-box').style.display = 'none'; }, 1000);
+                alertBox.style.display = 'block';
+                setTimeout(() => { alertBox.style.display = 'none'; }, 1000);
             }
         }, true);
 
+        // コンテキストメニュー禁止
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+
         function resetPlayer() {
-            location.reload(); // Audio Contextリセットのためリロード推奨
+            iframeContainer.innerHTML = "";
+            videoInput.value = "";
+            playerWrapper.classList.add('hidden');
+            effects = { invert: false, grayscale: false };
+            document.getElementById('btn-invert').classList.remove('active');
+            document.getElementById('btn-grayscale').classList.remove('active');
+            updateFilters();
         }
+
+        videoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadVideo();
+        });
     </script>
 </body>
 </html>
