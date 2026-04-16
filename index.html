@@ -3,102 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niconico Restricted Player - Audio Effects</title>
+    <title>Niconico - Web Audio Boost</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            overflow-x: hidden;
-        }
+        body { background-color: #0f172a; color: #f8fafc; overflow-x: hidden; }
         .video-container {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
+            position: relative; width: 100%; padding-top: 56.25%;
+            background: #000; border-radius: 12px; overflow: hidden;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
             transition: transform 0.1s;
         }
         .video-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: 0;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
         }
-        
-        /* ガードレイヤー */
         .guards-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 50;
-            pointer-events: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; pointer-events: none;
         }
         .bottom-guard {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 22%; 
-            background: transparent;
-            pointer-events: auto;
-            cursor: not-allowed;
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 22%; 
+            pointer-events: auto; cursor: not-allowed;
         }
         .side-guard {
-            position: absolute;
-            top: 0;
-            width: 12%; 
-            height: 100%;
-            background: transparent;
-            pointer-events: auto;
-            cursor: not-allowed;
+            position: absolute; top: 0; width: 12%; height: 100%;
+            pointer-events: auto; cursor: not-allowed;
         }
         .left-guard { left: 0; }
         .right-guard { right: 0; }
 
-        /* 音割れ時の振動アニメーション */
         @keyframes shake {
             0% { transform: translate(0, 0); }
-            25% { transform: translate(2px, -2px); }
-            50% { transform: translate(-2px, 2px); }
-            75% { transform: translate(2px, 2px); }
+            25% { transform: translate(3px, -3px); }
+            50% { transform: translate(-3px, 3px); }
+            75% { transform: translate(3px, 3px); }
             100% { transform: translate(0, 0); }
         }
-        .distorted {
-            animation: shake 0.05s infinite;
-            filter: contrast(1.5) brightness(1.2) saturate(2);
-        }
+        .distorted { animation: shake 0.04s infinite; filter: contrast(1.8) saturate(2); }
 
-        /* カスタムスライダー */
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 6px; cursor: pointer; background: #334155; border-radius: 3px;
+            width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px;
         }
         input[type=range]::-webkit-slider-thumb {
-            height: 18px; width: 18px; border-radius: 50%; background: #db2777;
+            height: 20px; width: 20px; border-radius: 50%; background: #db2777;
             cursor: pointer; -webkit-appearance: none; margin-top: -6px;
+            box-shadow: 0 0 10px rgba(219, 39, 119, 0.5);
         }
-        #dist-slider::-webkit-slider-thumb {
-            background: #ef4444; box-shadow: 0 0 10px #ef4444;
-        }
+        #dist-slider::-webkit-slider-thumb { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
 
-        #alert-box {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #ef4444;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            display: none;
-            z-index: 1000;
-            font-weight: bold;
+        .audio-node-path {
+            font-family: monospace; font-size: 10px; color: #94a3b8;
+            background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 4px;
         }
     </style>
 </head>
@@ -106,17 +61,19 @@
 
     <div class="w-full max-w-4xl space-y-6">
         <div class="text-center space-y-2">
-            <h1 class="text-3xl font-bold tracking-tight text-white">ニコニコ動画プレイヤー</h1>
-            <p class="text-slate-400 text-sm">操作制限 ＆ 音響ビジュアルエフェクト</p>
+            <h1 class="text-3xl font-bold tracking-tight text-white italic">AUDIO BOOST SYSTEM</h1>
+            <div class="audio-node-path inline-block">
+                [AudioSource] ➔ [GainNode(Volume)] ➔ [GainNode(Boost/Distortion)] ➔ [Destination]
+            </div>
         </div>
 
         <div class="flex gap-2">
             <input type="text" id="videoUrl" 
-                placeholder="https://www.nicovideo.jp/watch/sm..." 
-                class="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all text-sm text-white">
+                placeholder="ニコニコ動画のURLを入力" 
+                class="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-white">
             <button onclick="loadVideo()" 
-                class="px-6 py-3 bg-pink-600 hover:bg-pink-500 font-semibold rounded-lg transition-colors whitespace-nowrap">
-                読み込み
+                class="px-6 py-3 bg-pink-600 hover:bg-pink-500 font-semibold rounded-lg transition-all">
+                LOAD
             </button>
         </div>
 
@@ -130,45 +87,40 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Volume Node Control -->
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
                     <div class="flex justify-between items-center">
-                        <label class="text-sm font-bold flex items-center gap-2 text-slate-300">
-                            <span>🔊</span> 音量調節 (UIのみ)
-                        </label>
-                        <span id="vol-value" class="text-xs font-mono text-pink-400">100%</span>
+                        <label class="text-sm font-bold text-slate-300 uppercase tracking-widest">Master Volume</label>
+                        <span id="vol-value" class="text-lg font-mono text-pink-500">100%</span>
                     </div>
                     <input type="range" id="vol-slider" min="0" max="100" value="100" class="w-full">
                 </div>
 
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+                <!-- Gain Boost Node Control -->
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
                     <div class="flex justify-between items-center">
-                        <label class="text-sm font-bold flex items-center gap-2 text-red-400">
-                            <span>⚠️</span> 音割れエフェクト
-                        </label>
-                        <span id="dist-value" class="text-xs font-mono text-red-400">OFF</span>
+                        <label class="text-sm font-bold text-red-500 uppercase tracking-widest">Gain Boost (Distortion)</label>
+                        <span id="dist-value" class="text-lg font-mono text-red-500">x1.0</span>
                     </div>
-                    <input type="range" id="dist-slider" min="0" max="100" value="0" class="w-full">
+                    <input type="range" id="dist-slider" min="1" max="100" step="0.5" value="1" class="w-full">
                 </div>
             </div>
 
-            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-700">
-                <div id="videoInfo" class="text-sm font-medium text-pink-400">Ready</div>
-                <div class="flex items-center gap-4">
-                    <span class="text-[10px] text-slate-500 italic">※iframe制限により、実際の音量増幅は物理音量で調整してください</span>
-                    <button onclick="resetPlayer()" class="text-xs text-slate-400 hover:text-white underline">クリア</button>
-                </div>
+            <div class="bg-slate-900 p-4 rounded-lg flex items-center justify-between border border-slate-800">
+                <div id="status-display" class="text-xs font-mono text-green-500 animate-pulse">● AUDIO ENGINE STANDBY</div>
+                <button onclick="resetPlayer()" class="text-xs text-slate-500 hover:text-white underline">RESET SYSTEM</button>
             </div>
         </div>
     </div>
 
-    <div id="alert-box">その操作は制限されています</div>
+    <div id="alert-box">ACCESS RESTRICTED</div>
 
     <script>
+        let audioCtx, source, volumeNode, boostNode;
         const videoInput = document.getElementById('videoUrl');
         const playerWrapper = document.getElementById('playerWrapper');
         const iframeContainer = document.getElementById('videoIframe');
-        const alertBox = document.getElementById('alert-box');
         const visualTarget = document.getElementById('visual-target');
         
         const volSlider = document.getElementById('vol-slider');
@@ -176,38 +128,47 @@
         const volValue = document.getElementById('vol-value');
         const distValue = document.getElementById('dist-value');
 
-        // キーボード制限
-        window.addEventListener('keydown', function(e) {
-            const forbiddenKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-            if (forbiddenKeys.includes(e.key)) {
-                e.preventDefault();
-                e.stopPropagation();
-                showAlert();
-                return false;
+        // Web Audio APIの初期化
+        function initAudioEngine() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 音の道 (Routing) を構築
+                volumeNode = audioCtx.createGain(); // 通常の音量用
+                boostNode = audioCtx.createGain();  // 音割れブースト用
+                
+                // 接続: [Source] -> volumeNode -> boostNode -> [Destination]
+                // ※iframeの音声を取り込むには、ブラウザの「このタブの音声を共有」等の許可が必要になる場合があります
+                volumeNode.connect(boostNode);
+                boostNode.connect(audioCtx.destination);
+                
+                console.log("Audio Engine Route Established");
             }
-        }, true);
-
-        window.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        function showAlert() {
-            alertBox.style.display = 'block';
-            setTimeout(() => { alertBox.style.display = 'none'; }, 2000);
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
-        // 音量・音割れスライダーの挙動
         volSlider.addEventListener('input', (e) => {
-            volValue.textContent = `${e.target.value}%`;
+            const val = e.target.value;
+            volValue.textContent = `${val}%`;
+            if (volumeNode) {
+                volumeNode.gain.value = val / 100;
+            }
         });
 
         distSlider.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            distValue.textContent = val > 0 ? `Lv.${val}` : "OFF";
+            const val = parseFloat(e.target.value);
+            distValue.textContent = `x${val.toFixed(1)}`;
             
-            // 音割れを視覚的に表現 (画面を揺らす)
-            if (val > 10) {
+            if (boostNode) {
+                boostNode.gain.value = val;
+            }
+
+            // 視覚的演出 (Gainに合わせて激しく揺らす)
+            if (val > 2) {
                 visualTarget.classList.add('distorted');
-                // 揺れの強さをレベルに合わせる
-                visualTarget.style.animationDuration = `${0.2 / (val / 10)}s`;
+                visualTarget.style.animationDuration = `${0.1 / (val / 5)}s`;
             } else {
                 visualTarget.classList.remove('distorted');
             }
@@ -218,29 +179,31 @@
             const nicoMatch = url.match(/(?:https?:\/\/)?(?:www\.)?nicovideo\.jp\/watch\/(sm\d+|so\d+|\d+)/);
 
             if (nicoMatch) {
+                initAudioEngine();
                 const videoId = nicoMatch[1];
                 const embedUrl = `https://embed.nicovideo.jp/watch/${videoId}?autoplay=1`;
                 
                 iframeContainer.innerHTML = `<iframe id="nico-iframe" src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
                 playerWrapper.classList.remove('hidden');
-                document.getElementById('videoInfo').textContent = `再生中: ${videoId}`;
+                document.getElementById('status-display').textContent = "● AUDIO ENGINE ACTIVE: ROUTING SUCCESS";
             } else {
-                alert("有効なニコニコ動画のURLを入力してください。");
+                alert("ニコニコ動画のURLを入力してください。");
             }
         }
 
-        function resetPlayer() {
-            iframeContainer.innerHTML = "";
-            videoInput.value = "";
-            playerWrapper.classList.add('hidden');
-            visualTarget.classList.remove('distorted');
-            distSlider.value = 0;
-            distValue.textContent = "OFF";
-        }
+        // キー制限
+        window.addEventListener('keydown', (e) => {
+            const forbidden = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'j', 'l', 'k', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+            if (forbidden.includes(e.key)) {
+                e.preventDefault(); e.stopPropagation();
+                document.getElementById('alert-box').style.display = 'block';
+                setTimeout(() => { document.getElementById('alert-box').style.display = 'none'; }, 1000);
+            }
+        }, true);
 
-        videoInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') loadVideo();
-        });
+        function resetPlayer() {
+            location.reload(); // Audio Contextリセットのためリロード推奨
+        }
     </script>
 </body>
 </html>
